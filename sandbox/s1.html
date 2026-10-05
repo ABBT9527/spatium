@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SANDBOX · S1 点层构形引擎</title>
+    <link rel="stylesheet" href="/src/styles/tokens.css" />
+    <link rel="stylesheet" href="/src/styles/sandbox.css" />
+  </head>
+  <body>
+    <div class="sb">
+      <header class="sb-head">
+        <span class="sb-tag">01</span>
+        <h1>S1 · PUNCTUM 构形引擎 sandbox</h1>
+        <span class="sb-sub">量形之度 / SPATIUM</span>
+      </header>
+
+      <main class="sb-main">
+        <section class="sb-canvas-wrap">
+          <canvas id="board" width="640" height="640"></canvas>
+          <div class="sb-hint">点击摆点 · 悬停看 ΔΦ · 摆满 N 枚才计入产能</div>
+        </section>
+
+        <aside class="sb-panel">
+          <div class="sb-metrics" id="metrics"></div>
+
+          <div class="sb-ctl">
+            <button id="btn-auto" class="sb-btn">自动求解器：开</button>
+            <button id="btn-fill" class="sb-btn">矩形填充</button>
+            <button id="btn-optim" class="sb-btn">参考最优摆法</button>
+            <button id="btn-clear" class="sb-btn">清空盘面</button>
+            <button id="btn-cycle" class="sb-btn sb-danger">强制周期重置</button>
+          </div>
+
+          <div class="sb-ctl">
+            <button id="btn-hex" class="sb-btn sb-accent" disabled>解锁三角格</button>
+          </div>
+
+          <div class="sb-milestones">
+            <div class="sb-lbl">里程碑</div>
+            <div class="sb-chips" id="milestones"></div>
+          </div>
+
+          <div class="sb-ctl">
+            <label class="sb-lbl">时间倍率 <span id="spd-val">×1</span></label>
+            <input id="spd" type="range" min="1" max="60" step="1" value="1" />
+          </div>
+
+          <div class="sb-log-wrap">
+            <div class="sb-lbl">轮次日志（实际 vs 目标，Governor 跟踪）</div>
+            <div class="sb-log" id="log"></div>
+          </div>
+        </aside>
+      </main>
+    </div>
+    <script type="module" src="./s1.ts"></script>
+  </body>
+</html>

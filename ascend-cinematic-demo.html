@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>涌升失败 · 演出沙盒 (进度条 + D→A 平滑演化)</title>
+<style>
+  :root {
+    --bg: #0d0f12;
+    --panel: #15181d;
+    --line: #23282f;
+    --ink: #d7dde3;
+    --dim: #7d8794;
+    --accent: #5fd0c0;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%;
+    background: var(--bg); color: var(--ink);
+    font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  #app { display: flex; flex-direction: column; height: 100vh; }
+
+  /* 顶栏：α 锚点，全程保持干净 */
+  .topbar {
+    flex: 0 0 auto;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+  }
+  .topbar .row { display: flex; gap: 18px; align-items: baseline; white-space: nowrap; }
+  .topbar .k { color: var(--dim); font-size: 12px; }
+  .topbar .v { color: var(--ink); font-weight: 600; letter-spacing: .3px; }
+  .topbar .anchor { color: var(--accent); }
+
+  /* 内容区：被腐蚀的页面文字元素 */
+  .content {
+    flex: 1 1 auto; min-height: 0; overflow: auto;
+    padding: 16px; display: flex; flex-direction: column; gap: 12px;
+  }
+  .card {
+    border: 1px solid var(--line); border-radius: 8px;
+    background: var(--panel); padding: 12px 14px;
+  }
+  .card .title { color: var(--dim); font-size: 12px; margin-bottom: 6px; }
+  .card .body { color: var(--ink); line-height: 1.5; min-height: 1.5em; }
+
+  /* 涌升进度卡片：置顶 sticky，不遮挡任何文字 */
+  .ascend {
+    position: sticky; top: 0; z-index: 5;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px rgba(95,208,192,.25), 0 6px 18px rgba(0,0,0,.45);
+  }
+  .ascend .title { color: var(--accent); }
+  .bar-track {
+    height: 14px; border-radius: 7px; background: #11161a;
+    border: 1px solid var(--line); overflow: hidden;
+  }
+  .bar-fill {
+    height: 100%; width: 0%;
+    background: var(--accent);            /* 纯青色，无渐变 */
+    box-shadow: 0 0 10px rgba(95,208,192,.55);
+  }
+  .bar-pct { margin-top: 8px; color: var(--dim); font-size: 12px; font-variant-numeric: tabular-nums; }
+  /* 失败文字现为卡片标题，不再用独立横幅 */
+
+  .verb-row { display: flex; gap: 10px; }
+  .verb {
+    flex: 1; border: 1px solid var(--line); border-radius: 8px;
+    padding: 14px; text-align: center; background: var(--panel);
+    min-height: 3.2em; display: flex; flex-direction: column; justify-content: center;
+  }
+  .verb .name { font-weight: 600; }
+  .verb .hint { color: var(--dim); font-size: 11px; }
+
+  /* 底栏导航 */
+  .nav {
+    flex: 0 0 auto; display: flex; border-top: 1px solid var(--line);
+    background: var(--panel);
+  }
+  .nav .item {
+    flex: 1; text-align: center; padding: 12px 0; color: var(--dim);
+    border-right: 1px solid var(--line); min-height: 2.6em;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .nav .item:last-child { border-right: none; }
+  .nav .item.active { color: var(--ink); }
+  .nav .item.gone { opacity: 0; pointer-events: none; }
+
+  /* 控制条 + 读数 */
+  .hud {
+    position: fixed; top: 8px; right: 8px; z-index: 60;
+    background: rgba(20,24,29,.9); border: 1px solid var(--line);
+    border-radius: 8px; padding: 8px 10px; font-size: 11px; color: var(--dim);
+    width: 230px; line-height: 1.7;
+  }
+  .hud b { color: var(--ink); font-weight: 600; }
+  .hud button {
+    margin-top: 6px; width: 100%; padding: 6px; border-radius: 6px;
+    border: 1px solid var(--line); background: #1c2026; color: var(--ink); cursor: pointer;
+  }
+  .hud .legend { margin-top: 6px; color: #6b7682; }
+  .hud .legend .d { color: var(--accent); }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="topbar">
+    <div class="row">
+      <div><span class="k">计数 n</span> <span class="v">3.00</span></div>
+      <div><span class="k">序数计数 a</span> <span class="v">2187</span></div>
+      <div><span class="k">序数 α</span> <span class="v anchor" id="anchor">ω^(ω^ω) (已达硬上限)</span></div>
+    </div>
+  </div>
+
+  <div class="content" id="content">
+    <!-- 涌升进度卡片：留在内容流内，置顶不遮挡 -->
+    <div class="card ascend" id="ascendCard">
+      <div class="title">涌升进度</div>
+      <div class="bar-track"><div class="bar-fill" id="barFill"></div></div>
+      <div class="bar-pct" id="barPct">0.0%</div>
+    </div>
+
+    <div class="verb-row">
+      <div class="verb" data-garble><div class="name">后继</div><div class="hint">快捷键 S</div></div>
+      <div class="verb" data-garble><div class="name">极限</div><div class="hint">快捷键 L</div></div>
+      <div class="verb" data-garble><div class="name">换基</div><div class="hint">快捷键 R</div></div>
+    </div>
+    <div class="card" data-garble>
+      <div class="title">后继增益</div>
+      <div class="body">每级提升后继步伐，当前等级 4 / 上限 5。效果随换基进度线性增长，不引入深度缩放。</div>
+    </div>
+    <div class="card" data-garble>
+      <div class="title">极限深化</div>
+      <div class="body">解锁后每次极限并入更多份计数副本，副本数 = 1 + 等级。建议在 base 7 之后优先点满。</div>
+    </div>
+    <div class="card" data-garble>
+      <div class="title">自动极限</div>
+      <div class="body">当计数达到换基门槛时自动执行极限，无需手动操作。与自动后继共享同一刷新节拍。</div>
+    </div>
+    <div class="card" data-garble>
+      <div class="title">序数共鸣</div>
+      <div class="body">以 ε 购买的定理式升级，跨阶段持久，提升集合层级而非直接增加计数。base 3 初始上限为 2。</div>
+    </div>
+  </div>
+
+  <div class="nav" id="nav">
+    <div class="item active" data-nav>序数</div>
+    <div class="item" data-nav>升级</div>
+    <div class="item" data-nav>成就</div>
+    <div class="item" data-nav>设置</div>
+  </div>
+</div>
+
+<div class="hud">
+  <div>进度 <b id="hPct">0.0%</b></div>
+  <div>阶段 <b id="hPhase">—</b></div>
+  <div>下一闪 <b id="hNext">—</b></div>
+  <button id="replay">▶ 重新播放</button>
+  <div class="legend">
+    文字演化（强度随进度平滑上升）：<br/>
+    <span class="d">50% D错位</span> → 80–90% 逐字交叉淡换 → 90%+ A乱码<br/>
+    每个元素：闪一次→隔~1s→加速至70ms<br/>
+    A：CJK 区段随机取字（演示同款、无假名）、~70ms 狂跳<br/>
+    导航 80% 起跟随，维持 D（重排+形近字，与演示一致），99% 逐条消失。<br/>
+    失败：标题变「本次涌升失败」并切 D 乱码。
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- 乱码池 ----------
+  const NEAR = {
+    '后':'後','继':'断','极':'級','限':'垠','换':'挽','基':'甚',
+    '计':'計','成':'诚','功':'攻','率':'効','速':'逑','动':'勭',
+    '升':'弁','涌':'湧','失':'夭','败':'貱','增':'増','益':'',
+    '自':'臫','级':'級','当':'當','前':'刖','无':'無','建':'徤',
+    '议':'議','优':'優','先':'兇','点':'點','满':'滿','解':'觧',
+    '锁':'鎖','每':'毎','次':'夾','并':'倂','更':'吏','多':'夛',
+    '份':'伒','副':'冨','与':'與','共':'兯','享':'侕','同':'仝',
+    '节':'節','拍':'狛','建':'徤'
+  };
+  // A 方案：按演示生成法，在 CJK 区段随机取字全替换（剔除假名段，避免行高抖动）
+  const CJK_RANGES = [[0x4e00, 0x9fff], [0x3400, 0x4dbf]];
+  function rndCJK() {
+    const r = CJK_RANGES[(Math.random() * CJK_RANGES.length) | 0];
+    return String.fromCharCode(r[0] + ((Math.random() * (r[1] - r[0])) | 0));
+  }
+  // D 方案（与演示一致）：真词打散重组——逐字重排 + 30% 偶发形近字替换
+  const SIMILAR = {'序':'兟','数':'敳','升':'圱','级':'岌','成':'晟','就':'蹴','设':'沒','置':'値','本':'夲','次':'吹','涌':'湧','升':'昇','失':'夨','败':'敗'};
+  function scramble(s) {
+    const arr = [...s];
+    for (let i = arr.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [arr[i], arr[j]] = [arr[j], arr[i]]; }
+    for (let i = 0; i < arr.length; i++) { if (Math.random() < 0.3) { const rep = SIMILAR[arr[i]]; if (rep) arr[i] = rep; } }
+    return arr.join('');
+  }
+  const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+  const lerp = (a, b, t) => a + (b - a) * t;
+
+  // 随进度平滑上升的腐蚀：D 错位率(50→80 渐升) + 80→90 逐字交叉淡换成 A
+  function garbleText(orig, p) {
+    const dProb = clamp(lerp(0.15, 0.95, (p - 50) / 30), 0, 0.95); // 50→80
+    const aBlend = clamp((p - 80) / 10, 0, 1);                      // 80→90 交叉淡换
+    let out = "";
+    for (const ch of orig) {
+      if (ch === " " || ch === "　") { out += ch; continue; }
+      const r = Math.random();
+      if (r < aBlend) out += rndCJK();                 // A 侧：完全随机汉字
+      else if (r < aBlend + dProb) out += (NEAR[ch] || rndCJK()); // D 侧：形近字
+      else out += ch;                                  // 保留原字
+    }
+    return out;
+  }
+
+  // ---------- 元素登记 ----------
+  const contentEls = Array.from(document.querySelectorAll('#content [data-garble]'));
+  contentEls.forEach(e => { e._orig = e.textContent; });
+  const navEls = Array.from(document.querySelectorAll('#nav [data-nav]'));
+  navEls.forEach(n => { n._orig = n.textContent; n._scheme = null; n._timer = 0; });
+
+  const STAGGER = 0.55; // 元素逐个触发间隔（秒）
+
+  // ---------- 进度条速度模型 ----------
+  // 0→50% 匀速；>50% 指数衰减（平滑减速），渐近线 99%
+  const V0 = 3.57;
+  const T50 = 50 / V0;
+  const K = V0 / 49;
+  const P80 = 80, P90 = 90, CLIMAX_P = 98.5;
+
+  function progressAt(elapsed) {
+    let p;
+    if (elapsed <= T50) p = V0 * elapsed;
+    else p = 50 + 49 * (1 - Math.exp(-K * (elapsed - T50)));
+    return Math.min(p, 99.4);
+  }
+
+  // ---------- 主循环 ----------
+  let startT = 0, rafId = 0, running = false;
+  const barFill = document.getElementById('barFill');
+  const barPct = document.getElementById('barPct');
+  const titleEl = document.querySelector('#ascendCard .title');
+  const hPct = document.getElementById('hPct');
+  const hPhase = document.getElementById('hPhase');
+  const hNext = document.getElementById('hNext');
+
+  let climaxDone = false;
+
+  function loop(now) {
+    if (!running) return;
+    const elapsed = (now - startT) / 1000;
+    const p = progressAt(elapsed);
+
+    barFill.style.width = p.toFixed(1) + '%';
+    barPct.textContent = p.toFixed(1) + '%';
+    hPct.textContent = p.toFixed(1) + '%';
+    hPhase.textContent =
+      p < 50 ? '0–50% 匀速' :
+      p < P80 ? '50–80% D错位·减速' :
+      p < P90 ? '80–90% 过渡' :
+      p < CLIMAX_P ? '90–99% A乱码·近停滞' : '失败';
+
+    // 内容元素：逐个触发，节奏=闪一次→隔1s→加速至70ms；内容随 p 平滑腐蚀
+    if (p >= 50) {
+      contentEls.forEach((e, i) => {
+        if (e._state === undefined) e._state = 'normal';
+        if (e._state === 'normal') {
+          const trigger = T50 + i * STAGGER;
+          if (elapsed >= trigger) {
+            e._state = 'wait1';
+            e._nextAt = now + 1000;
+            e.textContent = garbleText(e._orig, p);   // 第一次闪
+          }
+        } else if (e._state === 'wait1') {
+          if (now >= e._nextAt) {
+            e.textContent = garbleText(e._orig, p);   // 第二次闪
+            e._state = 'accel';
+            e._interval = 500;
+            e._nextAt = now + e._interval;
+          }
+        } else { // accel / A：用随进度上升的强度重掷
+          if (now >= e._nextAt) {
+            e.textContent = garbleText(e._orig, p);
+            e._interval = Math.max(70, e._interval * 0.6);
+            e._nextAt = now + e._interval;
+          }
+        }
+      });
+    }
+
+    // 导航：80% 起跟随，但全程维持 D 方案（不切 A）
+    if (p >= P80) {
+      navEls.forEach((n, i) => {
+        if (n._scheme !== 'on') {
+          n._scheme = 'on';
+          n._nextAt = now + i * 120;
+        }
+        if (now >= n._nextAt) {
+          n.textContent = scramble(n._orig);
+          n._nextAt = now + 70 + Math.random() * 30;
+        }
+      });
+    }
+
+    // 逼近 99% → 失败宣告 + 导航除「序数」外逐条消失
+    if (p >= CLIMAX_P && !climaxDone) {
+      climaxDone = true;
+      titleEl.textContent = '本次涌升失败';   // 失败文字取代「涌升进度」标题
+      titleEl._failAt = now;
+      hPhase.textContent = '失败';
+      navEls.filter(n => n._orig !== '序数').forEach((n, i) => {
+        setTimeout(() => n.classList.add('gone'), 700 + i * 700);
+      });
+    }
+    // 失败展示约 0.8s 后，标题切到 D 方案乱码
+    if (titleEl._failAt !== undefined && now >= titleEl._failAt + 800) {
+      titleEl.textContent = scramble('本次涌升失败');
+    }
+
+    // 下一闪读数
+    let minNext = Infinity;
+    contentEls.forEach(e => { if (e._state && e._state !== 'normal' && e._nextAt < minNext) minNext = e._nextAt; });
+    hNext.textContent = (p >= 50 && minNext < Infinity) ? (Math.max(0, (minNext - now) / 1000)).toFixed(2) + 's' : '—';
+
+    if (p >= 99.4) running = false; // 演示到顶自动停，留作观察
+    rafId = requestAnimationFrame(loop);
+  }
+
+  function reset() {
+    cancelAnimationFrame(rafId);
+    contentEls.forEach(e => { e.textContent = e._orig; e._state = undefined; });
+    navEls.forEach(n => { n.textContent = n._orig; n.classList.remove('gone'); n._scheme = null; });
+    titleEl.textContent = '涌升进度';
+    titleEl._failAt = undefined;
+    barFill.style.width = '0%';
+    barPct.textContent = '0.0%';
+    climaxDone = false;
+  }
+
+  function start() {
+    reset();
+    running = true;
+    startT = performance.now();
+    rafId = requestAnimationFrame(loop);
+  }
+
+  document.getElementById('replay').addEventListener('click', start);
+  start();
+})();
+</script>
+</body>
+</html>

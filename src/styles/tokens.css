@@ -1,0 +1,45 @@
+/* 设计 token —— 简洁 · 克制 · 工业 · 构成
+   非灰颜色 ≤ 3 种；无渐变、无发光、无投影；8 px 网格；1 px 分割线 + 编号 */
+
+:root {
+  --bg: #0b0c0e;
+  --panel: #14161a;
+  --line: #23262c;
+  --text: #e6e8eb;
+  --dim: #8a9099;
+  --accent: #4fd1c5;
+  --warn: #e0a458;
+  --danger: #d9534f;
+
+  --font-sans: 'Inter', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, monospace;
+
+  --grid: 8px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font-family: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}

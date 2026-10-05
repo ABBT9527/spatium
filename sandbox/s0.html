@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SANDBOX · S0 计数层</title>
+    <link rel="stylesheet" href="/src/styles/tokens.css" />
+    <link rel="stylesheet" href="/src/styles/sandbox.css" />
+  </head>
+  <body>
+    <div class="sb">
+      <header class="sb-head">
+        <span class="sb-tag">00</span>
+        <h1>S0 · 计数层 sandbox</h1>
+        <span class="sb-sub">量形之度 / SPATIUM</span>
+      </header>
+
+      <main class="sb-main">
+        <section class="sb-canvas-wrap">
+          <div class="sb-metrics">
+            <div class="k">α · 已实现序数（极限累积；后继不改 α）</div>
+            <div id="alpha" class="v mono accent">0</div>
+            <div class="k">计数 n / 基数 base</div>
+            <div id="nb" class="v mono">0 / 10</div>
+            <div class="k">α 深度 d / 后继增益</div>
+            <div id="charge" class="v mono">0 / +1</div>
+          </div>
+
+          <div class="sb-ctl">
+            <button id="btn-succ" class="sb-btn">后继 +1</button>
+            <button id="btn-succ10" class="sb-btn">+10</button>
+            <button id="btn-succ100" class="sb-btn">+100</button>
+            <button id="btn-limit" class="sb-btn">极限（n≥base）</button>
+            <button id="btn-gate" class="sb-btn">攒到门槛并极限</button>
+            <button id="btn-rebase" class="sb-btn sb-danger">换基 base−1</button>
+            <button id="btn-restart" class="sb-btn">↺ 重置到开局</button>
+          </div>
+          <div class="sb-hint">
+            后继 = n + succGain（<b>只动计数，不改 α</b>）；极限 = 计数溢出基数（n ≥ base）时，把
+            ω-内容并入 α（遗传进位 10→ω、ω+10→ω·2），n 回落到 &lt; base；
+            换基 = base 10→2 且<b>重置 n/α/升级</b>。门槛 = <b>α ≥ ω²</b>（等价一次极限并出 ω²）；
+            base = 2 时<b>攒到 n = 4 再极限即达 ε₀</b> ⇒ 可涌升。极限是唯一推高 α 的手段，
+            故 α 深度同时抬高升级强度与价格（价格由序数决定）。
+          </div>
+
+          <div class="sb-log-wrap">
+            <div class="sb-lbl">参考阶梯（当前 base）</div>
+            <div class="sb-log" id="rungs"></div>
+          </div>
+        </section>
+
+        <aside class="sb-panel">
+          <div class="sb-metrics" id="metrics"></div>
+
+          <div class="sb-ctl">
+            <button id="btn-run" class="sb-btn sb-danger">⏩ 推进到 ε₀（自动换基）</button>
+          </div>
+
+          <div class="sb-log-wrap">
+            <div class="sb-lbl">操作日志</div>
+            <div class="sb-log" id="log"></div>
+          </div>
+        </aside>
+      </main>
+    </div>
+    <script type="module" src="./s0.ts"></script>
+  </body>
+</html>

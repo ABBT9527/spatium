@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>乱码风格演示 · Garble Demo</title>
+<style>
+  :root{
+    --bg:#0d0f12; --panel:#111417; --line:#2a2f37; --text:#c9d1d9;
+    --dim:#6e7681; --accent:#f0883e; --mono:'SFMono-Regular',Consolas,'Liberation Mono',monospace;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:system-ui,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;}
+  h1{font-size:15px;font-weight:600;padding:16px 20px;margin:0;border-bottom:1px solid var(--line);}
+  .sub{font-size:12px;color:var(--dim);padding:8px 20px 0;}
+  .wrap{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:16px 20px 28px;}
+  @media(max-width:720px){.wrap{grid-template-columns:1fr;}}
+  .panel{border:1px solid var(--line);border-radius:8px;padding:14px;background:var(--panel);}
+  .panel h2{font-size:13px;margin:0 0 4px;color:#8b949e;font-weight:600;}
+  .panel .desc{font-size:11px;color:var(--dim);margin:0 0 12px;line-height:1.5;}
+  .nav{display:flex;gap:6px;margin-bottom:12px;}
+  .nav button{flex:1;padding:9px 4px;font-size:12px;background:#161b22;
+    border:1px solid var(--line);color:var(--text);border-radius:4px;cursor:default;}
+  .status{font-size:15px;color:var(--accent);margin-bottom:6px;min-height:20px;}
+  .res{font-size:12px;color:var(--dim);font-family:var(--mono);}
+  .anchor{font-family:var(--mono);font-size:13px;color:#58a6ff;margin-top:8px;}
+  .g{font-family:var(--mono);}
+  .foot{font-size:11px;color:var(--dim);padding:0 20px 24px;line-height:1.6;}
+</style>
+</head>
+<body>
+<h1>乱码风格演示 · 四种方案（均为持续跳动，~70ms 重 roll 一次）</h1>
+<div class="sub">每个面板用真实界面元素模拟：底部导航四按钮 + 「本次涌升失败」状态行 + 计数行；顶栏 α 锚点保持正常的 ω^(ω^ω)。</div>
+<div class="wrap">
+
+  <!-- A -->
+  <div class="panel">
+    <h2>A · 损坏中文感</h2>
+    <p class="desc">从汉字/假名区段随机取字逐字替换，像界面文本被随机汉字淹没。可读性最低、纯噪声。</p>
+    <div class="nav">
+      <button class="g" data-orig="序数" data-style="A">序数</button>
+      <button class="g" data-orig="升级" data-style="A">升级</button>
+      <button class="g" data-orig="成就" data-style="A">成就</button>
+      <button class="g" data-orig="设置" data-style="A">设置</button>
+    </div>
+    <div class="status g" data-orig="本次涌升失败" data-style="A">本次涌升失败</div>
+    <div class="res g" data-orig="计数 n · 序数计数 a" data-style="A">计数 n · 序数计数 a</div>
+    <div class="anchor">α = ω^(ω^ω) (已达硬上限) — 锚点保持正常</div>
+  </div>
+
+  <!-- B -->
+  <div class="panel">
+    <h2>B · Zalgo 撕裂</h2>
+    <p class="desc">在真实文字每个字符后堆叠随机组合附加符号，字符被纵向拉长、向上下晕开，像信号撕裂/诅咒。</p>
+    <div class="nav">
+      <button class="g" data-orig="序数" data-style="B">序数</button>
+      <button class="g" data-orig="升级" data-style="B">升级</button>
+      <button class="g" data-orig="成就" data-style="B">成就</button>
+      <button class="g" data-orig="设置" data-style="B">设置</button>
+    </div>
+    <div class="status g" data-orig="本次涌升失败" data-style="B">本次涌升失败</div>
+    <div class="res g" data-orig="计数 n · 序数计数 a" data-style="B">计数 n · 序数计数 a</div>
+    <div class="anchor">α = ω^(ω^ω) (已达硬上限) — 锚点保持正常</div>
+  </div>
+
+  <!-- C -->
+  <div class="panel">
+    <h2>C · 矩阵符号</h2>
+    <p class="desc">用制表/方块/标点符号逐字替换，像早期终端/矩阵雨的乱码。工业、黑客、几何构成味重。</p>
+    <div class="nav">
+      <button class="g" data-orig="序数" data-style="C">序数</button>
+      <button class="g" data-orig="升级" data-style="C">升级</button>
+      <button class="g" data-orig="成就" data-style="C">成就</button>
+      <button class="g" data-orig="设置" data-style="C">设置</button>
+    </div>
+    <div class="status g" data-orig="本次涌升失败" data-style="C">本次涌升失败</div>
+    <div class="res g" data-orig="计数 n · 序数计数 a" data-style="C">计数 n · 序数计数 a</div>
+    <div class="anchor">α = ω^(ω^ω) (已达硬上限) — 锚点保持正常</div>
+  </div>
+
+  <!-- D -->
+  <div class="panel">
+    <h2>D · 真词打散重组</h2>
+    <p class="desc">保留真实字符集（序数/升级…），只做逐字重排或偶发形近字替换。几乎能读懂却永远对不上的残片感；最克制。</p>
+    <div class="nav">
+      <button class="g" data-orig="序数" data-style="D">序数</button>
+      <button class="g" data-orig="升级" data-style="D">升级</button>
+      <button class="g" data-orig="成就" data-style="D">成就</button>
+      <button class="g" data-orig="设置" data-style="D">设置</button>
+    </div>
+    <div class="status g" data-orig="本次涌升失败" data-style="D">本次涌升失败</div>
+    <div class="res g" data-orig="计数 n · 序数计数 a" data-style="D">计数 n · 序数计数 a</div>
+    <div class="anchor">α = ω^(ω^ω) (已达硬上限) — 锚点保持正常</div>
+  </div>
+
+</div>
+<div class="foot">
+  四个面板分别对应选项 A / B / C / D。看过效果后，回复你选哪个（可指定混合，例如「导航用 C、状态行用 B」），我再据此落地整段演出。
+</div>
+
+<script>
+  // —— 随机源 ——
+  const CJK_RANGES = [[0x4e00,0x9fff],[0x3040,0x30ff],[0x3400,0x4dbf]];
+  function rndCJK(){
+    const r = CJK_RANGES[(Math.random()*CJK_RANGES.length)|0];
+    return String.fromCharCode(r[0] + ((Math.random()*(r[1]-r[0]))|0));
+  }
+  const MATRIX = '▓▒░╪╫┼■□▲△◆◇●○@#%&*+=/\\|¦┊┆⌁⏃⎔⏚⏛';
+  // 形近字替换表（D 用）
+  const SIMILAR = {'序':'兟','数':'敳','升':'圱','级':'岌','成':'晟','就':'蹴','设':'沒','置':'値','本':'夲','次':'吹','涌':'湧','升':'昇','失':'夨','败':'敗'};
+
+  function zalgo(s){
+    let out='';
+    for(const ch of s){
+      out += ch;
+      const n = 1 + ((Math.random()*5)|0);
+      for(let i=0;i<n;i++) out += String.fromCharCode(0x0300 + ((Math.random()*0x6f)|0));
+    }
+    return out;
+  }
+  function scramble(s){
+    const arr = [...s];
+    // 逐字重排
+    for(let i=arr.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; [arr[i],arr[j]]=[arr[j],arr[i]]; }
+    // 30% 概率偶发形近字替换，制造"残片"感
+    for(let i=0;i<arr.length;i++){
+      if(Math.random()<0.3){ const rep=SIMILAR[arr[i]]; if(rep) arr[i]=rep; }
+    }
+    return arr.join('');
+  }
+  function garble(s, style){
+    if(style==='A'){ let o=''; for(let i=0;i<s.length;i++) o+=rndCJK(); return o; }
+    if(style==='B'){ return zalgo(s); }
+    if(style==='C'){ let o=''; for(let i=0;i<s.length;i++) o+=MATRIX[(Math.random()*MATRIX.length)|0]; return o; }
+    if(style==='D'){ return scramble(s); }
+    return s;
+  }
+
+  const items = [...document.querySelectorAll('[data-orig]')];
+  function roll(){
+    for(const el of items){
+      el.textContent = garble(el.dataset.orig, el.dataset.style);
+    }
+  }
+  // ~70ms 重 roll：连续跳动，非定格闪烁
+  setInterval(roll, 70);
+  roll();
+</script>
+</body>
+</html>

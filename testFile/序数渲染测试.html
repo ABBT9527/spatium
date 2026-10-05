@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>序数转换测试 (可调底数)</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/break_eternity.js@2.1.0"></script>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    max-width: 900px; margin: 2em auto; padding: 1em; background: #fafafa; color: #222; }
+  h1 { font-size: 1.5em; }
+  .input-row { display: flex; gap: 0.5em; margin: 1em 0; }
+  input[type="text"] { flex: 1; padding: 0.6em; font-size: 1.1em;
+    font-family: ui-monospace, monospace; border: 1px solid #ccc; border-radius: 4px; }
+  button { padding: 0.6em 1.2em; font-size: 1em; cursor: pointer;
+    background: #4a90e2; color: white; border: none; border-radius: 4px; }
+  button:hover { background: #357abd; }
+  .examples { display: flex; flex-wrap: wrap; gap: 0.4em; margin-bottom: 1em; }
+  .examples button { padding: 0.3em 0.6em; font-size: 0.85em; background: #6c757d; }
+  .examples button:hover { background: #545b62; }
+  #output { margin-top: 1em; padding: 1.5em; border: 1px solid #ddd;
+    border-radius: 4px; background: white; min-height: 4em;
+    font-size: 1.3em; overflow-x: auto; }
+  #info { color: #666; font-size: 0.9em; margin-top: 0.5em;
+    white-space: pre-wrap; font-family: ui-monospace, monospace; }
+  .error { color: #d9534f; }
+  .hint { color: #888; font-size: 0.9em; }
+  .setting { margin-bottom: 0.5em; color: #555; font-size: 0.9em; }
+  .setting input[type="number"] { width: 4em; padding: 0.2em; }
+</style>
+</head>
+<body>
+<h1>序数转换测试 (可调底数)</h1>
+<p class="hint">
+  底数 b 决定 ω = b 与 ε₀ = b↑↑b。例如 b=2 时 ω=2、ε₀=4；b=3 时 ω=3、ε₀=3^27；b=4 时 ω=4、ε₀=4↑↑4。
+</p>
+<div class="setting">
+  底数：<input type="number" id="baseInput" value="3" min="2" max="10">
+  最多显示项数：<input type="number" id="maxTerms" value="8" min="1" max="50">
+  最大递归深度：<input type="number" id="maxDepth" value="20" min="1" max="100">
+</div>
+<div class="input-row">
+  <input id="input" type="text" value="27" placeholder="例如：12345, 1e100, 3^27">
+  <button onclick="convert()">转换</button>
+</div>
+<div class="examples">
+  <button onclick="setBase('2')">底数=2</button>
+  <button onclick="setBase('3')">底数=3</button>
+  <button onclick="setBase('4')">底数=4</button>
+  <button onclick="setInput('4')">4 (b=2 → ε₀)</button>
+  <button onclick="setInput('8')">8 (b=2 → ε₀·ω)</button>
+  <button onclick="setInput('16')">16 (b=2 → ε₀^ω)</button>
+  <button onclick="setInput('256')">256 (b=2 → ε₁)</button>
+  <button onclick="setInput('65536')">65536 (b=2)</button>
+  <button onclick="setInput('12')">12 (b=2 → ε₀·(ω+1))</button>
+  <button onclick="setInput('3^27')">3^27 (b=3 → ε₀)</button>
+  <button onclick="setInput('3^28')">3^28 (b=3)</button>
+  <button onclick="setInput('3^81')">3^81 (b=3)</button>
+  <button onclick="setInput('3^28+3^27')">3^28+3^27 (b=3)</button>
+</div>
+<div id="output"></div>
+<div id="info"></div>
+<script>
+const LOG10 = Math.log10;
+
+function parseInput(str) {
+  str = String(str).trim().replace(/\s+/g, '');
+  if (!str) throw new Error('输入为空');
+  let depth = 0;
+  let firstCaret = -1;
+  for (let i = 0; i < str.length; i++) {
+    const ch = str[i];
+    if (ch === '(') depth++;
+    else if (ch === ')') depth--;
+    else if (ch === '^' && depth === 0) { firstCaret = i; break; }
+  }
+  if (firstCaret > 0) {
+    const baseStr = str.slice(0, firstCaret);
+    const expStr = str.slice(firstCaret + 1);
+    const b = parseInput(baseStr.replace(/^\(|\)$/g, ''));
+    const e = parseInput(expStr.replace(/^\(|\)$/g, ''));
+    const result = b.pow(e);
+    if (!result.isFinite()) throw new Error('数值溢出');
+    return result;
+  }
+  if (str.startsWith('(') && str.endsWith(')')) return parseInput(str.slice(1, -1));
+  let d;
+  try { d = new Decimal(str); }
+  catch (e) { throw new Error('无法解析：' + str); }
+  if (!d.isFinite()) throw new Error('数值无效或溢出');
+  if (d.lt(0)) throw new Error('不支持负数');
+  return d;
+}
+
+function toOrdinalString(value, options) {
+  options = options || {};
+  const base = options.base || 3;
+  const maxTerms = options.maxTerms || 8;
+  const maxDepth = options.maxDepth || 20;
+
+  function tetration(b, n) {
+    if (n <= 0) return new Decimal(1);
+    let val = new Decimal(1);
+    for (let i = 0; i < n; i++) {
+      try {
+        val = new Decimal(b).pow(val);
+        if (!val.isFinite()) return null;
+      } catch (e) { return null; }
+    }
+    return val;
+  }
+
+  // 阈值阶梯（ε 自然数序号梯）：独立构建，长度由安全上限决定，不再受 maxDepth（递归深度）约束。
+  // 修复：原实现用 maxDepth 同时当「阶梯高度」与「递归深度」，导致 ε 下标 lv = thresholds.length-1
+  // 被卡在 maxDepth-2（默认 20 → lv≤18 → 渲染成 ω²·2 且不再增长）。
+  // 现在阶梯高度改用 MAX_LADDER，maxDepth 只管指数/系数的递归深度。
+  // 注意根因未解：lv 仍是自然数序号（ε_18 不是 ε_ω），要支持真正序数下标需 Veblen φ₁ 重构（见对话）。
+  const MAX_LADDER = 1000; // break_eternity 可表示约 10^^1e308；1000 级阶梯远在安全范围内
+  const thresholds = [new Decimal(base)];
+  for (let n = 1; n < MAX_LADDER; n++) {
+    const prev = thresholds[n-1];
+    let val = new Decimal(1);
+    let ok = true;
+    for (let j = 0; j < base; j++) {
+      try {
+        val = prev.pow(val);
+        if (!val.isFinite()) { ok = false; break; }
+      } catch (e) { ok = false; break; }
+    }
+    if (!ok) break;
+    thresholds.push(val);
+  }
+
+  const liftDivisor = tetration(base, base - 1) || new Decimal(base);
+
+  function findLevel(N) {
+    for (let n = thresholds.length - 1; n >= 0; n--) {
+      if (thresholds[n].lte(N)) return n;
+    }
+    return 0;
+  }
+
+  function ordFromNat(N, depth, remainingTerms) {
+    if (depth <= 0 || remainingTerms <= 0) {
+      return { ord: [], truncated: true };
+    }
+    N = N.floor();
+    if (N.lt(1)) return { ord: [], truncated: false };
+    if (N.lt(base)) {
+      return { ord: [{ t: 'f', n: N.toNumber() }], truncated: false };
+    }
+
+    const n = findLevel(N);
+    const en = thresholds[n];
+
+    let k = N.log10().div(en.log10()).floor();
+    let pow = en.pow(k);
+    let corrects = 0;
+    while (N.lt(pow) && corrects < 5) {
+      k = k.sub(1); pow = en.pow(k); corrects++;
+    }
+    while (N.gte(pow.mul(en)) && corrects < 5) {
+      k = k.add(1); pow = en.pow(k); corrects++;
+    }
+
+    let c = N.div(pow).floor();
+    let r = N.sub(c.mul(pow));
+    if (r.lt(1)) r = new Decimal(0);
+
+    const expResult = ordFromNat(k, depth - 1, remainingTerms);
+    let truncated = expResult.truncated;
+
+    let term;
+    if (n === 0) {
+      term = { t: 'w', e: expResult.ord, c: c.toNumber() };
+    } else {
+      const coefResult = ordFromNat(c, depth - 1, remainingTerms);
+      truncated = truncated || coefResult.truncated;
+      term = { t: 'eps', lv: n - 1, e: expResult.ord, c: coefResult.ord };
+    }
+
+    const result = [term];
+    if (r.gt(0)) {
+      if (remainingTerms - 1 <= 0) {
+        truncated = true;
+      } else {
+        const restResult = ordFromNat(r, depth, remainingTerms - 1);
+        for (const t of restResult.ord) result.push(t);
+        truncated = truncated || restResult.truncated;
+      }
+    }
+    return { ord: result, truncated };
+  }
+
+  function isFiniteOrd(e) {
+    if (e.length === 0) return true;
+    if (e.length === 1 && e[0].t === 'f') return true;
+    return false;
+  }
+  function isOneOrd(e) {
+    return e.length === 1 && e[0].t === 'f' && e[0].n === 1;
+  }
+  function isZeroOrd(e) { return e.length === 0; }
+
+  function isEpsN(e, n) {
+    return e.length === 1 && e[0].t === 'eps' && e[0].lv === n
+      && isOneOrd(e[0].e) && isOneOrd(e[0].c);
+  }
+  function isEpsNSquared(e, n) {
+    return e.length === 1 && e[0].t === 'eps' && e[0].lv === n
+      && isEpsN(e[0].e, n) && isOneOrd(e[0].c);
+  }
+
+  function kOfOrd(e) {
+    if (e.length === 0) return new Decimal(0);
+    let k = new Decimal(0);
+    for (const term of e) {
+      if (term.t === 'f') {
+        k = k.add(term.n);
+      } else if (term.t === 'w') {
+        const inner = kOfOrd(term.e);
+        k = k.add(new Decimal(base).pow(inner).mul(term.c));
+      } else if (term.t === 'eps') {
+        const lv = term.lv;
+        if (lv + 1 >= thresholds.length) return new Decimal(Infinity);
+        const en = thresholds[lv + 1];
+        const inner = kOfOrd(term.e);
+        const innerVal = en.pow(inner);
+        const coefVal = kOfOrd(term.c);
+        k = k.add(innerVal.mul(coefVal));
+      }
+    }
+    return k;
+  }
+
+  function needsLift(e) {
+    const k = kOfOrd(e);
+    if (!k.isFinite()) return false;
+    return k.gte(liftDivisor);
+  }
+
+  function renderOmegaPow(e) {
+    if (isZeroOrd(e)) return '1';
+    if (isOneOrd(e)) return '\\omega';
+    if (needsLift(e)) return renderLifted(e, 1);
+    return '\\omega^{' + renderOrd(e) + '}';
+  }
+
+  function renderLifted(e, c) {
+    const k = kOfOrd(e);
+    if (!k.isFinite()) {
+      const s = '\\omega^{' + renderOrd(e) + '}';
+      return c === 1 ? s : s + ' \\cdot ' + c;
+    }
+    const alphaNat = k.div(liftDivisor).floor();
+    const gammaNat = k.sub(alphaNat.mul(liftDivisor));
+    const alpha = ordFromNat(alphaNat, maxDepth, maxTerms).ord;
+    const gamma = ordFromNat(gammaNat, maxDepth, maxTerms).ord;
+
+    let baseStr;
+    if (isZeroOrd(alpha)) baseStr = '1';
+    else if (isOneOrd(alpha)) baseStr = '\\varepsilon_0';
+    else baseStr = '\\varepsilon_0^{' + renderOrd(alpha) + '}';
+
+    let result;
+    if (isZeroOrd(gamma)) {
+      result = baseStr;
+    } else {
+      const gammaOmegaStr = renderOmegaPow(gamma);
+      result = baseStr === '1' ? gammaOmegaStr : baseStr + ' \\cdot ' + gammaOmegaStr;
+    }
+    if (c !== 1) result += ' \\cdot ' + c;
+    return result;
+  }
+
+  function renderOrd(ord) {
+    if (ord.length === 0) return '0';
+    return ord.map(renderTerm).join(' + ');
+  }
+
+  // ε 索引泛化：lv 是自然数，用当前底数把它映射成序数
+  function renderEpsN(n) {
+    if (n === 0) return '\\varepsilon_0';
+    const sub = ordFromNat(new Decimal(n), maxDepth, maxTerms).ord;
+    if (sub.length === 0) return '\\varepsilon_0';
+    return '\\varepsilon_{' + renderOrd(sub) + '}';
+  }
+
+  function renderTerm(term) {
+    if (term.t === 'f') return String(term.n);
+    if (term.t === 'w') {
+      const e = term.e, c = term.c;
+      if (isZeroOrd(e)) return String(c);
+      let baseStr;
+      if (isOneOrd(e)) baseStr = '\\omega';
+      else if (needsLift(e)) return renderLifted(e, c);
+      else baseStr = '\\omega^{' + renderOrd(e) + '}';
+      if (c === 1) return baseStr;
+      return baseStr + ' \\cdot ' + c;
+    }
+    if (term.t === 'eps') {
+      const lv = term.lv, e = term.e, c = term.c;
+      // 折叠 ε_n^{ε_n^{ε_n}} = ε_{n+1}
+      if (isOneOrd(c) && isEpsNSquared(e, lv)) {
+        return renderEpsN(lv + 1);
+      }
+      const baseStr0 = renderEpsN(lv);
+      let baseStr = baseStr0;
+      if (!isOneOrd(e)) {
+        baseStr = baseStr + '^{' + renderOrd(e) + '}';
+      }
+      if (isOneOrd(c)) return baseStr;
+      const cStr = renderOrd(c);
+      if (c.length === 1) return baseStr + ' \\cdot ' + cStr;
+      return baseStr + ' \\cdot (' + cStr + ')';
+    }
+  }
+
+  const { ord, truncated } = ordFromNat(value, maxDepth, maxTerms);
+  let resultStr = renderOrd(ord);
+  if (truncated) {
+    if (resultStr === '0') resultStr = '\\cdots';
+    else resultStr += ' + \\cdots';
+  }
+  return { result: resultStr, truncated };
+}
+
+function setBase(s) {
+  document.getElementById('baseInput').value = s;
+  convert();
+}
+function setInput(s) {
+  document.getElementById('input').value = s;
+  convert();
+}
+function convert() {
+  const inputEl = document.getElementById('input');
+  const outputEl = document.getElementById('output');
+  const infoEl = document.getElementById('info');
+  outputEl.innerHTML = '';
+  infoEl.textContent = '';
+  if (typeof Decimal === 'undefined') {
+    outputEl.innerHTML = '<span class="error">break_eternity.js 未加载，请检查网络。</span>';
+    return;
+  }
+  if (typeof katex === 'undefined') {
+    outputEl.textContent = 'KaTeX 未加载，请检查网络。';
+    return;
+  }
+  try {
+    const base = parseInt(document.getElementById('baseInput').value) || 3;
+    const maxTerms = parseInt(document.getElementById('maxTerms').value) || 8;
+    const maxDepth = parseInt(document.getElementById('maxDepth').value) || 20;
+    if (base < 2) throw new Error('底数至少为 2');
+    const t0 = performance.now();
+    const value = parseInput(inputEl.value);
+    let valStr;
+    if (value.lt(1e15) && value.gt(1e-10)) valStr = value.toFixed(0);
+    else valStr = value.toString();
+    const r = toOrdinalString(value, { base, maxTerms, maxDepth });
+    const t1 = performance.now();
+    try {
+      const html = katex.renderToString(r.result, {
+        throwOnError: false, displayMode: true
+      });
+      outputEl.innerHTML = html;
+    } catch (e) {
+      outputEl.textContent = r.result;
+      infoEl.textContent += 'KaTeX 渲染失败: ' + e.message + '\n';
+    }
+    let info = '底数: ' + base + '\n';
+    info += '原始值: ' + valStr + '\n';
+    info += '耗时: ' + (t1 - t0).toFixed(2) + ' ms';
+    if (r.truncated) info += '\n⚠️ 部分低阶项因 maxTerms / maxDepth 限制被截断。';
+    infoEl.textContent = info;
+  } catch (e) {
+    outputEl.innerHTML = '<span class="error">错误：' + e.message + '</span>';
+  }
+}
+window.addEventListener('load', convert);
+document.getElementById('input').addEventListener('keydown', function (e) {
+  if (e.key === 'Enter') convert();
+});
+</script>
+</body>
+</html>
